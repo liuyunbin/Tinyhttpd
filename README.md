@@ -3,6 +3,7 @@
 ## 修改日志
 
 ## 2017-08-30 修改以便在 ubuntu 下运行
+1. 将 `README.md` 改为 `README.md`
 1. 修改 `httpd.c` 代码风格，使用TAB(四个空格)进行缩进--------吐槽一下源代码使用一个空格进行缩进
 2. 去掉 `Makefile` 里的 `-lsocket`, 将 `-lpthread` 改为 `-pthread`
 3. 将 `htdocs` 中的 `check.cgi` 和 `color.cgi` 中的 `perl` 路径改为: `/usr/bin/perl`
