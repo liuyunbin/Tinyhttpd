@@ -1,4 +1,17 @@
-  This software is copyright 1999 by J. David Blackstone.  Permission
+
+
+## 修改日志
+
+## 2017-08-30 修改以便在 ubuntu 下运行
+1. 修改 `httpd.c` 代码风格，使用TAB(四个空格)进行缩进--------吐槽一下源代码使用一个空格进行缩进
+2. 去掉 `Makefile` 里的 `-lsocket`, 将 `-lpthread` 改为 `-pthread`
+3. 将 `htdocs` 中的 `check.cgi` 和 `color.cgi` 中的 `perl` 路径改为: `/usr/bin/perl`
+4. 添加 `color.cgi` 的可执行权限，`chmod +x color.cgi`
+5. 修改源码，去除了编译的警告
+
+
+## 原项目 README
+This software is copyright 1999 by J. David Blackstone.  Permission
 is granted to redistribute and modify this software under the terms of
 the GNU General Public License, available at http://www.gnu.org/ .
 
