@@ -1,15 +1,24 @@
 
-
 ## 修改日志
 
-## 2017-08-30 修改以便在 ubuntu 下运行
+
+## 2017-08-30
+### 修改以便在 ubuntu 下运行
 1. 将 `README.md` 改为 `README.md`
 1. 修改 `httpd.c` 代码风格，使用TAB(四个空格)进行缩进--------吐槽一下源代码使用一个空格进行缩进
 2. 去掉 `Makefile` 里的 `-lsocket`, 将 `-lpthread` 改为 `-pthread`
 3. 将 `htdocs` 中的 `check.cgi` 和 `color.cgi` 中的 `perl` 路径改为: `/usr/bin/perl`
 4. 添加 `color.cgi` 的可执行权限，`chmod +x color.cgi`
-5. 修改源码，去除了编译的警告
-
+### 修改源码，去除了编译的警告
+1. 将函数 `int startup(u_short *port)` 中的 `int namelen = sizeof(name);` 改为 `socklen_t namelen = sizeof(name);`
+2. 将函数 `int main(void)` 中的 `int client_name_len = sizeof(client_name);` 改为 `socklen_t client_name_len = sizeof(client_name);`
+3. 将函数声明 `void accept_request(int);` 改为 `void* accept_request(void*);`
+4. 将函数定义 `void accept_request(int client)` 改为 `void* accept_request(void* client_sock)`
+5. 在函数 `void* accept_request(void* client_sock)` 中添加定义 `int client = *(int*)client_sock;`
+6. 在函数 `void* accept_request(void* client_sock)` 中添加返回值 `return NULL;`
+7. 将函数 `void* accept_request(void* client_sock)` 中的 `return ;`  改为 `return NULL;`
+8. 将函数 `int main(void)` 中的 `if (pthread_create(&newthread , NULL, accept_request, client_sock) != 0)` 改为`if (pthread_create(&newthread , NULL, accept_request, (void*)(&client_sock)) != 0)`
+                    
 
 ## 原项目 README
 This software is copyright 1999 by J. David Blackstone.  Permission
