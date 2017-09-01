@@ -84,7 +84,7 @@ void* accept_request(void* client_sock) {
         }
     }
 
-    sprintf(path, "htdocs%s", url);
+    snprintf(path, sizeof(path), "htdocs%s", url);
     if (path[strlen(path) - 1] == '/')
         strcat(path, "index.html");
     /* 请求资源未找到  */
@@ -114,15 +114,15 @@ void* accept_request(void* client_sock) {
 void bad_request(int client) {
      char buf[1024];
 
-     sprintf(buf, "HTTP/1.0 400 BAD REQUEST\r\n");
+     snprintf(buf, sizeof(buf), "HTTP/1.0 400 BAD REQUEST\r\n");
      send(client, buf, sizeof(buf), 0);
-     sprintf(buf, "Content-type: text/html\r\n");
+     snprintf(buf, sizeof(buf), "Content-type: text/html\r\n");
      send(client, buf, sizeof(buf), 0);
-     sprintf(buf, "\r\n");
+     snprintf(buf, sizeof(buf), "\r\n");
      send(client, buf, sizeof(buf), 0);
-     sprintf(buf, "<P>Your browser sent a bad request, ");
+     snprintf(buf, sizeof(buf), "<P>Your browser sent a bad request, ");
      send(client, buf, sizeof(buf), 0);
-     sprintf(buf, "such as a POST without a Content-Length.\r\n");
+     snprintf(buf, sizeof(buf), "such as a POST without a Content-Length.\r\n");
      send(client, buf, sizeof(buf), 0);
 }
 
@@ -150,13 +150,13 @@ void cat(int client, FILE *resource) {
 void cannot_execute(int client) {
      char buf[1024];
 
-    sprintf(buf, "HTTP/1.0 500 Internal Server Error\r\n");
+    snprintf(buf, sizeof(buf), "HTTP/1.0 500 Internal Server Error\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-type: text/html\r\n");
+    snprintf(buf, sizeof(buf), "Content-type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "\r\n");
+    snprintf(buf, sizeof(buf), "\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "<P>Error prohibited CGI execution.\r\n");
+    snprintf(buf, sizeof(buf), "<P>Error prohibited CGI execution.\r\n");
     send(client, buf, strlen(buf), 0);
 }
 
@@ -201,7 +201,7 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
         }
     }
 
-    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
 
     if (pipe(cgi_output) < 0 || pipe(cgi_input) < 0 || (pid=fork()) < 0) {
@@ -217,14 +217,14 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
         dup2(cgi_input[0], 0);
         close(cgi_output[0]);
         close(cgi_input[1]);
-        sprintf(meth_env, "REQUEST_METHOD=%s", method);
+        snprintf(meth_env, sizeof(meth_env), "REQUEST_METHOD=%s", method);
         putenv(meth_env);
         if (strcasecmp(method, "GET") == 0) {
-            sprintf(query_env, "QUERY_STRING=%s", query_string);
+            snprintf(query_env, sizeof(query_env), "QUERY_STRING=%s", query_string);
             putenv(query_env);
         }
         else {   /* POST */
-            sprintf(length_env, "CONTENT_LENGTH=%d", content_length);
+            snprintf(length_env, sizeof(length_env), "CONTENT_LENGTH=%d", content_length);
             putenv(length_env);
         }
         execl(path, path, NULL);
@@ -281,7 +281,7 @@ void headers(int client, const char *filename) {
     send(client, buf, strlen(buf), 0);
     strcpy(buf, SERVER_STRING);
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html\r\n");
+    snprintf(buf, sizeof(buf), "Content-Type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
     strcpy(buf, "\r\n");
     send(client, buf, strlen(buf), 0);
@@ -295,23 +295,23 @@ void headers(int client, const char *filename) {
 void not_found(int client) {
     char buf[1024];
 
-    sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
+    snprintf(buf, sizeof(buf), "HTTP/1.0 404 NOT FOUND\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, SERVER_STRING);
+    snprintf(buf, sizeof(buf), SERVER_STRING);
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html\r\n");
+    snprintf(buf, sizeof(buf), "Content-Type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "\r\n");
+    snprintf(buf, sizeof(buf), "\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "<HTML><TITLE>Not Found</TITLE>\r\n");
+    snprintf(buf, sizeof(buf), "<HTML><TITLE>Not Found</TITLE>\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "<BODY><P>The server could not fulfill\r\n");
+    snprintf(buf, sizeof(buf), "<BODY><P>The server could not fulfill\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "your request because the resource specified\r\n");
+    snprintf(buf, sizeof(buf), "your request because the resource specified\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "is unavailable or nonexistent.\r\n");
+    snprintf(buf, sizeof(buf), "is unavailable or nonexistent.\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "</BODY></HTML>\r\n");
+    snprintf(buf, sizeof(buf), "</BODY></HTML>\r\n");
     send(client, buf, strlen(buf), 0);
 }
 
@@ -376,21 +376,21 @@ int get_server_socket(u_short *server_port) {
 void unimplemented(int client) {
     char buf[1024];
 
-    sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
+    snprintf(buf, sizeof(buf), "HTTP/1.0 501 Method Not Implemented\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, SERVER_STRING);
+    snprintf(buf, sizeof(buf), SERVER_STRING);
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html\r\n");
+    snprintf(buf, sizeof(buf), "Content-Type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "\r\n");
+    snprintf(buf, sizeof(buf), "\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
+    snprintf(buf, sizeof(buf), "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "</TITLE></HEAD>\r\n");
+    snprintf(buf, sizeof(buf), "</TITLE></HEAD>\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
+    snprintf(buf, sizeof(buf), "<BODY><P>HTTP request method not supported.\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "</BODY></HTML>\r\n");
+    snprintf(buf, sizeof(buf), "</BODY></HTML>\r\n");
     send(client, buf, strlen(buf), 0);
 }
 
