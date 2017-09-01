@@ -1,9 +1,9 @@
-/* J. David's webserver */
-/* This is a simple webserver.
- * Created November 1999 by J. David Blackstone.
- * CSE 4344 (Network concepts), Prof. Zeigler
- * University of Texas at Arlington
- */
+/****************************/
+/*                          */
+/*     原作者：J. David     */
+/*     修改人：刘云宾       */
+/*                          */
+/****************************/
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -18,16 +18,15 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 
-#define SERVER_STRING "Server: jdbhttpd/0.1.0\r\n"
+#define SERVER_STRING "Server: Tinyhttpd/0.1.0\r\n"
 
 void* accept_request(void*);
 void bad_request(int);
-void cat(int, FILE *);
 void cannot_execute(int);
 void error_die(const char *);
 void execute_cgi(int, const char *, const char *, const char *);
 int  get_line_from_sock(int, char *, int);
-void headers(int, const char *);
+void headers(int);
 void not_found(int);
 void serve_file(int, const char *);
 int  get_server_socket(u_short *);
@@ -47,7 +46,7 @@ void* accept_request(void* client_sock) {
     size_t  i;             /**********************/
     struct  stat st;
     int     cgi = 0;      /* becomes true if server decides this is a CGI program */
-    char *query_string = NULL;
+    char    *query_string = NULL;
 
     free(client_sock);
 
@@ -63,8 +62,8 @@ void* accept_request(void* client_sock) {
         return NULL;
     }
 
-    if (strcasecmp(method, "POST") == 0)
-        cgi = 1;
+    //if (strcasecmp(method, "POST") == 0)
+      //  cgi = 1;
 
     while (isspace(buf[i]) && buf[i] != '\0')
         ++i;
@@ -98,19 +97,20 @@ void* accept_request(void* client_sock) {
         if ((st.st_mode&S_IXUSR) || (st.st_mode&S_IXGRP) || (st.st_mode&S_IXOTH))
             cgi = 1;
         if (!cgi)
-            serve_file(client, path);
+            serve_file(client, path); /* 发送静态页面  */
         else
-            execute_cgi(client, path, method, query_string);
+            execute_cgi(client, path, method, query_string); /* 执行 cgi 脚本  */
     }
 
     close(client);
     return NULL;
 }
 
-/**********************************************************************/
-/* Inform the client that a request it has made has a problem.
- * Parameters: client socket */
-/**********************************************************************/
+/**************************************/
+/*                                    */
+/*        请求报文格式错误            */
+/*                                    */
+/***************************×**********/
 void bad_request(int client) {
      char buf[1024];
 
@@ -126,29 +126,13 @@ void bad_request(int client) {
      send(client, buf, sizeof(buf), 0);
 }
 
-/**********************************************************************/
-/* Put the entire contents of a file out on a socket.  This function
- * is named after the UNIX "cat" command, because it might have been
- * easier just to do something like pipe, fork, and exec("cat").
- * Parameters: the client socket descriptor
- *             FILE pointer for the file to cat */
-/**********************************************************************/
-void cat(int client, FILE *resource) {
-     char buf[1024];
-
-     fgets(buf, sizeof(buf), resource);
-     while (!feof(resource)) {
-        send(client, buf, strlen(buf), 0);
-        fgets(buf, sizeof(buf), resource);
-    }
-}
-
-/**********************************************************************/
-/* Inform the client that a CGI script could not be executed.
- * Parameter: the client socket descriptor. */
-/**********************************************************************/
+/***************************************/
+/*                                     */
+/*              服务器错误             */
+/*                                     */
+/***************************************/
 void cannot_execute(int client) {
-     char buf[1024];
+    char buf[1024];
 
     snprintf(buf, sizeof(buf), "HTTP/1.0 500 Internal Server Error\r\n");
     send(client, buf, strlen(buf), 0);
@@ -172,78 +156,78 @@ void error_die(const char *sc) {
 /******************************************/
 void execute_cgi(int client, const char *path, const char *method, const char *query_string) {
     char buf[1024];
-    int cgi_output[2];
-    int cgi_input[2];
+    int child_to_parent[2]; /* 子进程向父进程发送信息的管道  */
+    int parent_to_child[2]; /* 父进程向子进程发送信息的管道  */
     pid_t pid;
-    int status;
     int i;
     char c;
-    int numchars = 1;
     int content_length = -1;
 
-    buf[0] = 'A'; 
-    buf[1] = '\0';
     if (strcasecmp(method, "GET") == 0) {
-        while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
-            numchars = get_line_from_sock(client, buf, sizeof(buf));
+        while (get_line_from_sock(client, buf, sizeof(buf)) > 0 && strcmp("\n", buf) != 0)
+            ;
     }
-    else    /* POST */ {
-        numchars = get_line_from_sock(client, buf, sizeof(buf));
-        while ((numchars > 0) && strcmp("\n", buf)) {
+    else {
+        while (get_line_from_sock(client, buf, sizeof(buf)) > 0 && strcmp("\n", buf)) {
             buf[15] = '\0';
             if (strcasecmp(buf, "Content-Length:") == 0)
-                content_length = atoi(&(buf[16]));
-            numchars = get_line_from_sock(client, buf, sizeof(buf));
+                content_length = atoi(buf + 16);
         }
         if (content_length == -1) {
             bad_request(client);
-            return;
+            return ;
         }
     }
 
+    /* 发送状态行   */
     snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
 
-    if (pipe(cgi_output) < 0 || pipe(cgi_input) < 0 || (pid=fork()) < 0) {
-        cannot_execute(client);
-        return;
-    }
-    if (pid == 0)  /* child: CGI script */ {
-        char meth_env[255];
-        char query_env[255];
-        char length_env[255];
 
-        dup2(cgi_output[1], 1);
-        dup2(cgi_input[0], 0);
-        close(cgi_output[0]);
-        close(cgi_input[1]);
+    if (pipe(child_to_parent) < 0 || pipe(parent_to_child) < 0 || (pid=fork()) < 0) {
+        cannot_execute(client);
+        return ;
+    }
+    if (pid == 0)  {
+        char meth_env[255];          /*************************************************/
+        char query_env[255];         /*                                               */
+        char length_env[255];        /*               子进程                          */
+                                     /*                                               */   
+        dup2(child_to_parent[1], 1); /* 将标准输出重定向到管道 child_to_parent 的输入 */
+        dup2(parent_to_child[0], 0); /* 将标准输入重定向到管道 parent_to_child 的输出 */
+        close(child_to_parent[0]);   /* 关闭管道 child_to_parent 的输出               */
+        close(parent_to_child[1]);   /* 关闭管道 parent_to_child 的输入               */
+                                     /*                                               */
+                                     /*************************************************/
+
+        /* 设置环境变量，供 perl 脚本使用  */
         snprintf(meth_env, sizeof(meth_env), "REQUEST_METHOD=%s", method);
         putenv(meth_env);
         if (strcasecmp(method, "GET") == 0) {
             snprintf(query_env, sizeof(query_env), "QUERY_STRING=%s", query_string);
             putenv(query_env);
         }
-        else {   /* POST */
+        else {
             snprintf(length_env, sizeof(length_env), "CONTENT_LENGTH=%d", content_length);
             putenv(length_env);
         }
-        execl(path, path, NULL);
+        execl(path, query_string, NULL);
         exit(0);
     } 
-    else {    /* parent */
-        close(cgi_output[1]);
-        close(cgi_input[0]);
+    else {    
+        close(child_to_parent[1]);                /* 关闭管道 child_to parent 的输出 */
+        close(parent_to_child[0]);                /* 关闭管道 parent_to_child 的输入 */
         if (strcasecmp(method, "POST") == 0)
             for (i = 0; i < content_length; i++) {
                 recv(client, &c, 1, 0);
-                write(cgi_input[1], &c, 1);
+                write(parent_to_child[1], &c, 1);
             }
-            while (read(cgi_output[0], &c, 1) > 0)
+            while (read(child_to_parent[0], &c, 1) > 0)
                 send(client, &c, 1, 0);
 
-            close(cgi_output[0]);
-            close(cgi_input[1]);
-            waitpid(pid, &status, 0);
+            close(child_to_parent[0]);
+            close(parent_to_child[1]);
+            waitpid(pid, NULL, 0);
     }
 }
 
@@ -268,22 +252,21 @@ int get_line_from_sock(int sock, char *buf, int size) {
     return i;
 }
 
-/**********************************************************************/
-/* Return the informational HTTP headers about a file. */
-/* Parameters: the socket to print the headers on
- *             the name of the file */
-/**********************************************************************/
-void headers(int client, const char *filename) {
+/****************************************************************/
+/*                                                              */
+/*             发送状态行，响应头部和空行                       */
+/*                                                              */
+/****************************************************************/
+void headers(int client) {
     char buf[1024];
-    (void)filename;  /* could use filename to determine file type */
 
-    strcpy(buf, "HTTP/1.0 200 OK\r\n");
+    snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
-    strcpy(buf, SERVER_STRING);
+    snprintf(buf, sizeof(buf), SERVER_STRING);
     send(client, buf, strlen(buf), 0);
     snprintf(buf, sizeof(buf), "Content-Type: text/html\r\n");
     send(client, buf, strlen(buf), 0);
-    strcpy(buf, "\r\n");
+    snprintf(buf, sizeof(buf), "\r\n");
     send(client, buf, strlen(buf), 0);
 }
 
@@ -320,21 +303,23 @@ void not_found(int client) {
 /*    向客户端传送文件               */
 /*                                   */
 /*************************************/
-void serve_file(int client, const char *filename) {
+void serve_file(int client_sock, const char *filename) {
     FILE *resource;
-    char buf[1024] = "A";
+    char buf[1024];
 
     /* 读取并忽略请求头部  */
-    while (get_line_from_sock(client, buf, sizeof(buf)) > 0 && strcmp("\n", buf))
+    while (get_line_from_sock(client_sock, buf, sizeof(buf)) > 0 && strcmp("\n", buf))
         ;
 
     resource = fopen(filename, "r");
     if (resource == NULL) {
-        not_found(client);
+        not_found(client_sock);
         return ;
     }
-    headers(client, filename);
-    cat(client, resource);
+    headers(client_sock);
+    
+    while (fgets(buf, sizeof(buf), resource) != NULL)
+        send(client_sock, buf, strlen(buf), 0);
     fclose(resource);
 }
 
@@ -393,8 +378,6 @@ void unimplemented(int client) {
     snprintf(buf, sizeof(buf), "</BODY></HTML>\r\n");
     send(client, buf, strlen(buf), 0);
 }
-
-/**********************************************************************/
 
 int main(void) {
     int         server_sock;
