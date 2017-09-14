@@ -17,8 +17,10 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define SERVER_STRING "Server: Tinyhttpd/0.1.0\r\n"
+#define MAX_STRING_LENGTH 1024
 
 void* accept_request(void*);
 void bad_request(int);
@@ -39,13 +41,13 @@ void unimplemented(int);
 /***************************************/
 void* accept_request(void* client_sock) {
     int     client = *(int*)client_sock;
-    char    buf[1024];     /**********************/
-    char    *method;       /* 请求方法           */
-    char    *url;          /* 请求资源           */
-    char    path[512];     /* 请求资源实际路径   */
-    size_t  i;             /**********************/
+    char    buf[MAX_STRING_LENGTH];     /**********************/
+    char    *method;                    /* 请求方法           */
+    char    *url;                       /* 请求资源           */
+    char    path[MAX_STRING_LENGTH];    /* 请求资源实际路径   */
+    size_t  i;                          /**********************/
     struct  stat st;
-    int     cgi = 0;      /* becomes true if server decides this is a CGI program */
+    int     cgi = 0;                    /* becomes true if server decides this is a CGI program */
     char    *query_string = NULL;
 
     free(client_sock);
@@ -61,9 +63,6 @@ void* accept_request(void* client_sock) {
         unimplemented(client);
         return NULL;
     }
-
-    //if (strcasecmp(method, "POST") == 0)
-      //  cgi = 1;
 
     while (isspace(buf[i]) && buf[i] != '\0')
         ++i;
@@ -112,7 +111,7 @@ void* accept_request(void* client_sock) {
 /*                                    */
 /***************************×**********/
 void bad_request(int client) {
-     char buf[1024];
+     char buf[MAX_STRING_LENGTH];
 
      snprintf(buf, sizeof(buf), "HTTP/1.0 400 BAD REQUEST\r\n");
      send(client, buf, sizeof(buf), 0);
@@ -132,7 +131,7 @@ void bad_request(int client) {
 /*                                     */
 /***************************************/
 void cannot_execute(int client) {
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
 
     snprintf(buf, sizeof(buf), "HTTP/1.0 500 Internal Server Error\r\n");
     send(client, buf, strlen(buf), 0);
@@ -155,7 +154,7 @@ void error_die(const char *sc) {
 /*                                        */
 /******************************************/
 void execute_cgi(int client, const char *path, const char *method, const char *query_string) {
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
     int child_to_parent[2]; /* 子进程向父进程发送信息的管道  */
     int parent_to_child[2]; /* 父进程向子进程发送信息的管道  */
     pid_t pid;
@@ -189,16 +188,16 @@ void execute_cgi(int client, const char *path, const char *method, const char *q
         return ;
     }
     if (pid == 0)  {
-        char meth_env[255];          /*************************************************/
-        char query_env[255];         /*                                               */
-        char length_env[255];        /*               子进程                          */
-                                     /*                                               */   
-        dup2(child_to_parent[1], 1); /* 将标准输出重定向到管道 child_to_parent 的输入 */
-        dup2(parent_to_child[0], 0); /* 将标准输入重定向到管道 parent_to_child 的输出 */
-        close(child_to_parent[0]);   /* 关闭管道 child_to_parent 的输出               */
-        close(parent_to_child[1]);   /* 关闭管道 parent_to_child 的输入               */
-                                     /*                                               */
-                                     /*************************************************/
+        char meth_env[MAX_STRING_LENGTH];          /*************************************************/
+        char query_env[MAX_STRING_LENGTH];         /*                                               */
+        char length_env[MAX_STRING_LENGTH];        /*               子进程                          */
+                                                   /*                                               */   
+        dup2(child_to_parent[1], 1);               /* 将标准输出重定向到管道 child_to_parent 的输入 */
+        dup2(parent_to_child[0], 0);               /* 将标准输入重定向到管道 parent_to_child 的输出 */
+        close(child_to_parent[0]);                 /* 关闭管道 child_to_parent 的输出               */
+        close(parent_to_child[1]);                 /* 关闭管道 parent_to_child 的输入               */
+                                                   /*                                               */
+                                                   /*************************************************/
 
         /* 设置环境变量，供 perl 脚本使用  */
         snprintf(meth_env, sizeof(meth_env), "REQUEST_METHOD=%s", method);
@@ -258,7 +257,7 @@ int get_line_from_sock(int sock, char *buf, int size) {
 /*                                                              */
 /****************************************************************/
 void headers(int client) {
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
 
     snprintf(buf, sizeof(buf), "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
@@ -276,7 +275,7 @@ void headers(int client) {
 /*                             */
 /*******************************/
 void not_found(int client) {
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
 
     snprintf(buf, sizeof(buf), "HTTP/1.0 404 NOT FOUND\r\n");
     send(client, buf, strlen(buf), 0);
@@ -305,7 +304,7 @@ void not_found(int client) {
 /*************************************/
 void serve_file(int client_sock, const char *filename) {
     FILE *resource;
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
 
     /* 读取并忽略请求头部  */
     while (get_line_from_sock(client_sock, buf, sizeof(buf)) > 0 && strcmp("\n", buf))
@@ -359,7 +358,7 @@ int get_server_socket(u_short *server_port) {
 /*                                  */
 /************************************/
 void unimplemented(int client) {
-    char buf[1024];
+    char buf[MAX_STRING_LENGTH];
 
     snprintf(buf, sizeof(buf), "HTTP/1.0 501 Method Not Implemented\r\n");
     send(client, buf, strlen(buf), 0);
@@ -388,7 +387,7 @@ int main(void) {
     server_sock = get_server_socket(&server_port);
     printf("httpd running on port %d\n", server_port);
 
-    while (1) {
+    while (true) {
         /* 为避免多线程竞争问题，使用动态分配内存，在线程函数中释放  */
         client_sock = (int*)malloc(sizeof(int));
         if (client_sock == NULL)
