@@ -51,6 +51,7 @@ void* accept_request(void* client_sock) {
     char    *query_string = NULL;
 
     free(client_sock);
+    pthread_detach(pthread_self());     /* 将线程设置为游离态  */
 
     get_line_from_sock(client, buf, sizeof(buf));
 
@@ -397,8 +398,6 @@ int main(void) {
             error_die("accept");
         if (pthread_create(&newthread, NULL, accept_request, client_sock) != 0)
             perror("pthread_create");
-        /* 将线程设置为游离态  */
-        pthread_detach(newthread);
     }
 
     close(server_sock);
