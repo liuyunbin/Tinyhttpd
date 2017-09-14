@@ -397,6 +397,8 @@ int main(void) {
             error_die("accept");
         if (pthread_create(&newthread, NULL, accept_request, client_sock) != 0)
             perror("pthread_create");
+        /* 将线程设置为游离态  */
+        pthread_detach(newthread);
     }
 
     close(server_sock);
