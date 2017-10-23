@@ -4,6 +4,9 @@
 * 测试环境：ubuntu 16.04  chrome 60.0.3112.113 64 位
 
 ## 修改日志
+### 2017-10-23
+1. change `#!/usr/bin/perl` to `#!/usr/bin/env perl`
+
 ### 2017-09-14
 1. 去掉 `httpd.c` 中的魔法数字
 2. 将 `httpd.c` 线程设置为游离态
